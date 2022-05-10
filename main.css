@@ -111,3 +111,7 @@ button {
 .active {
 	background: #58a7e2;
 }
+
+.hide {
+	display: none;
+}

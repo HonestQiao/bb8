@@ -322,4 +322,85 @@
 		stopRolling();
 	};
 
+	var keyName = "";
+	var keystring = "";//记录按键的字符串
+	function keyboard(eve) {
+        let key = eve.key;
+        let keyCode = eve.keyCode || eve.which;
+        console.log(`key=${key} keyCode=${keyCode}`);
+	}
+
+	function keypress(e) {
+		var currKey = 0, CapsLock = 0, e = e || event;
+		currKey = e.keyCode || e.which || e.charCode;
+		CapsLock = currKey >= 65 && currKey <= 90;
+		switch (currKey) {
+			//屏蔽了退格、制表、回车、空格、方向键、删除键
+			//Exclude: Backspace, Tab, Return, Direction Key, Delete
+			case 8:
+			case 9:
+			case 13:
+			case 32:
+			case 37:
+			case 38:
+			case 39:
+			case 40:
+			case 46:
+				keyName = `[${currKey}]`;
+				break;
+			default:
+				keyName = String.fromCharCode(currKey);
+				break;
+		}
+		keystring += keyName;
+		console.log("keypress:"+keyName);
+	}
+	function keydown(e) {
+		var e = e || event;
+		var currKey = e.keyCode || e.which || e.charCode;
+		if ((currKey > 7 && currKey < 14) || (currKey > 31 && currKey < 47)) {
+			switch (currKey) {
+				case 8: keyName = "[Backspace]";
+					break;
+				case 9: keyName = "[Tab]";
+					break;
+				case 13: keyName = "[Return]";
+					break;
+				case 32: keyName = "[Space]";
+					break;
+				case 33: keyName = "[PageUp]";
+					break;
+				case 34: keyName = "[PageDown]";
+					break;
+				case 35: keyName = "[End]";
+					break;
+				case 36: keyName = "[Home]";
+					break;
+				case 37: keyName = "[Left]";
+					break;
+				case 38: keyName = "[Up]";
+					break;
+				case 39: keyName = "[Right]";
+					break;
+				case 40: keyName = "[Down]";
+					break;
+				case 46: keyName = "[Delete]";
+					break;
+				default: keyName = "";
+					break;
+			}
+			keystring += keyName;
+		}
+		console.log("keydown:"+keyName);
+	}
+	function keyup(e) {
+		console.log("keyup:"+keystring);
+		keystring = "";
+	}
+	document.addEventListener('keypress', keypress);
+	document.addEventListener('keydown', keydown);
+	document.addEventListener('keyup', keyup);
+	document.onkeypress = keypress;
+	document.onkeydown = keydown;
+	document.onkeyup =keyup;
 }());

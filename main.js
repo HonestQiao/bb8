@@ -393,39 +393,69 @@
 		stopRolling();
 	};
 
-	var keyName = "";
-	var keystring = "";//记录按键的字符串
-	var keyDirs = [];
-	function keyboard(eve) {
-		let key = eve.key;
-		let keyCode = eve.keyCode || eve.which;
-		console.log(`key=${key} keyCode=${keyCode}`);
-	}
+	let keyName = "";
+	let keystring = "";//记录按键的字符串
+	let keyDirs = [];
+	let keyX = radius;
+	let keyY = radius;
+	let prev_dir = '';
 
-	function keypress(e) {
-		var currKey = 0, CapsLock = 0, e = e || event;
-		currKey = e.keyCode || e.which || e.charCode;
-		CapsLock = currKey >= 65 && currKey <= 90;
-		switch (currKey) {
-			//屏蔽了退格、制表、回车、空格、方向键、删除键
-			case 8:
-			case 9:
-			case 13:
-			case 32:
-			case 37:
-			case 38:
-			case 39:
-			case 40:
-			case 46:
-				keyName = `[${currKey}]`;
-				break;
-			default:
-				keyName = String.fromCharCode(currKey);
-				break;
+	// function keyboard(eve) {
+	// 	let key = eve.key;
+	// 	let keyCode = eve.keyCode || eve.which;
+	// 	console.log(`key=${key} keyCode=${keyCode}`);
+	// }
+
+	const handleKeyEvent = function (dir) {
+		if (dir!="") {
+			switch (dir) {
+				case '[Left]':
+					keyX -= dir == prev_dir ? 2 : 1;
+					break;
+				case '[Right]':
+					keyX += dir == prev_dir ? 2 : 1;
+					break;
+				case '[Up]':
+					keyY -= dir == prev_dir ? 2 : 1;
+					break;
+				case '[Down]':
+					keyY += dir == prev_dir ? 2 : 1;
+					break;
+				default:
+					break;
+			}
+			prev_dir = dir;
+			keyX = Math.max(Math.min(keyX, radius*2), 0);
+			keyY = Math.max(Math.min(keyY, radius*2), 0);			
+			runCtrl(keyX, keyY);
 		}
-		keystring += keyName;
-		console.log("keypress:"+keyName);
-	}
+	};
+
+	// function keypress(e) {
+	// 	var currKey = 0, CapsLock = 0, e = e || event;
+	// 	currKey = e.keyCode || e.which || e.charCode;
+	// 	CapsLock = currKey >= 65 && currKey <= 90;
+	// 	switch (currKey) {
+	// 		//屏蔽了退格、制表、回车、空格、方向键、删除键
+	// 		case 8:
+	// 		case 9:
+	// 		case 13:
+	// 		case 32:
+	// 		case 37:
+	// 		case 38:
+	// 		case 39:
+	// 		case 40:
+	// 		case 46:
+	// 			keyName = `[${currKey}]`;
+	// 			break;
+	// 		default:
+	// 			keyName = String.fromCharCode(currKey);
+	// 			break;
+	// 	}
+	// 	// keystring += keyName;
+	// 	console.log("keypress:"+keyName);
+	// }
+
 	function keydown(e) {
 		var e = e || event;
 		var currKey = e.keyCode || e.which || e.charCode;
@@ -448,20 +478,16 @@
 				case 36: keyName = "[Home]";
 					break;
 				case 37: keyName = "[Left]";
-					// runCtrl(radius-20,radius);
-					keyDirs.push('left');
+					keyDirs.push(keyName);handleKeyEvent(keyName);
 					break;
 				case 38: keyName = "[Up]";
-					// runCtrl(radius,radius-20);
-					keyDirs.push('up');
+					keyDirs.push(keyName);handleKeyEvent(keyName);
 					break;
 				case 39: keyName = "[Right]";
-					// runCtrl(radius+20,radius);
-					keyDirs.push('right');
+					keyDirs.push(keyName);handleKeyEvent(keyName);
 					break;
 				case 40: keyName = "[Down]";
-					// runCtrl(radius,radius+20);
-					keyDirs.push('down');
+					keyDirs.push(keyName);handleKeyEvent(keyName);
 					break;
 				case 46: keyName = "[Delete]";
 					break;
@@ -474,31 +500,10 @@
 	}
 	function keyup(e) {
 		console.log("keyup:" + keystring);
-		let x = radius;
-		let y = radius;
-		let prev_dir = '';
-		for(let i=0;i<keyDirs.length;i++) {
-			switch (dir) {
-				case 'left':
-					x -= dir == prev_dir ? 2 : 1;
-					break;
-				case 'right':
-					x += dir == prev_dir ? 2 : 1;
-					break;
-				case 'up':
-					y -= dir == prev_dir ? 2 : 1;
-					break;
-				case 'down':
-					y += dir == prev_dir ? 2 : 1;
-					break;
-				default:
-					break;
-			}
-			prev_dir = dir;
-		}
-		x = Math.max(Math.min(x, radius), 0);
-		y = Math.max(Math.min(y, radius), 0);
-		runCtrl(x, y);
+		stopRolling();
+		keyX = radius;
+		keyY = radius;
+		prev_dir = '';		
 		keystring = "";
 		keyDirs = [];
 	}
@@ -506,6 +511,6 @@
 	document.addEventListener('keydown', keydown);
 	document.addEventListener('keyup', keyup);
 	// document.onkeypress = keypress;
-	document.onkeydown = keydown;
-	document.onkeyup = keyup;
+	// document.onkeydown = keydown;
+	// document.onkeyup = keyup;
 }());

@@ -9,13 +9,6 @@
 		location.protocol = 'https:';
 	}
 
-	const isMobile = function () {
-		const nav = navigator.userAgent.toLowerCase();
-		return (
-			nav.match(/iphone/i) || nav.match(/ipod/i) || nav.match(/ipad/i) || nav.match(/android/i)
-		);
-	};
-
 	const elConnect = document.querySelector('#connect');
 	const elStop = document.querySelector('#stop');
 	const elAim = document.querySelector('#aim');
@@ -26,17 +19,20 @@
 	const elJoypad = document.querySelector('#joypad');
 	const elMessage = document.querySelector('#message');
 
-	const setVibrate = function() {
-		if (!isvibrate && navigator.vibrate) {
-			isvibrate = true;
-			[
-				elConnect, elStop, elAim, elRed, elBlue,
-				elGreen, elOff
-			].forEach(function (element) {
-				element.addEventListener('touchstart', function (event) {
-					navigator.vibrate(15);
-				});
-			});
+	const config = {
+		mqtt: {
+			enable: 1,
+			host: '192.168.1.15',
+			port: '8083',
+			username: 'admin',
+			password: 'public',
+			topic: 'device/BB-8/command'
+		},
+		websocket: {
+			enable: 1,
+			host: '192.168.1.15',
+			port: '1234',
+			reconnect: 1
 		}
 	}
 
@@ -54,7 +50,155 @@
 	let isvibrate = false;
 	let bluetoothDevice = null;
 
+	let socket;
+	let mqtt_client = null;
+	if (!window.WebSocket) {
+		window.WebSocket = window.MozWebSocket;
+	}
 	// setVibrate();
+
+	const isMobile = function () {
+		const nav = navigator.userAgent.toLowerCase();
+		return (
+			nav.match(/iphone/i) || nav.match(/ipod/i) || nav.match(/ipad/i) || nav.match(/android/i)
+		);
+	};
+
+	const setVibrate = function () {
+		if (!isvibrate && isMobile && navigator.vibrate) {
+			isvibrate = true;
+			[
+				elConnect, elStop, elAim, elRed, elBlue,
+				elGreen, elOff
+			].forEach(function (element) {
+				element.addEventListener('touchstart', function (event) {
+					navigator.vibrate(15);
+				});
+			});
+		}
+	}
+
+	function openWsServer() {
+		if (!config.websocket.enable) {
+			return;
+		}
+		var host_port = window.location.host;
+		if (window.WebSocket) {
+			if (socket && socket.readyState == WebSocket.OPEN) {
+				console.warn("WS is already opened.");
+				return;
+			}
+			let ws_host = "ws://" + config.websocket.host + ':' + config.websocket.port;
+			socket = new WebSocket(ws_host, "BB-8");
+			socket.onmessage = function (event) {
+				console.log('WS receive: ' + event.data);
+				try {
+					var json = JSON.parse(event.data);
+					// putMessage(JSON.stringify(json));
+					if (bluetoothDevice && "action" in json && "x" in json && "y" in json) {
+						let x = Math.max(Math.min(json.x, radius * 2), 0);
+						let y = Math.max(Math.min(json.y, radius * 2), 0);
+
+						if (json.action == 'move') {
+							runCtrl(x, y);
+						}
+
+						if (json.action == 'stop') {
+							stopRolling();
+						}
+					}
+				}
+				catch (e) {
+					console.error("WS: JSON parse error.", e.toString());
+				}
+			};
+			socket.onopen = function (event) {
+				console.log("WS is opened.");
+			};
+			socket.onclose = function (event) {
+				console.log("WS is closed.");
+				if (config.websocket.reconnect) {
+					setTimeout(function () {
+						openWsServer();
+					}, 2000);
+				}
+			};
+		} else {
+			console.error("WS: Your browser is not support WebSocket.");
+		}
+	}
+
+	function closeWsServer() {
+		if (!config.websocket.enable) {
+			return;
+		}
+		if (socket && socket.readyState == WebSocket.OPEN) {
+			socket.close();
+			console.log("WS is closed.");
+		} else {
+			console.log("WS is already closed.");
+		}
+	}
+
+	function openMqttServer() {
+		if (!config.mqtt.enable) {
+			return;
+		}
+		// 连接选项
+		const options = {
+			clean: true, // true: 清除会话, false: 保留会话
+			connectTimeout: 4000, // 超时时间
+			// 认证信息
+			clientId: 'BB-8',
+			username: config.mqtt.username,
+			password: config.mqtt.password,
+		};
+
+		// 连接字符串, 通过协议指定使用的连接方式
+		// ws 未加密 WebSocket 连接
+		// wss 加密 WebSocket 连接
+		const connectUrl = 'ws://' + config.mqtt.host + ':' + config.mqtt.port + '/mqtt';
+		const client = mqtt.connect(connectUrl, options);
+		mqtt_client = client;
+		console.log('MQTT is opened.');
+
+		client.on('reconnect', (error) => {
+			console.warn('MQTT is reconnecting.', error);
+		});
+
+		client.on('error', (error) => {
+			console.error('MQTT connect failed.', error);
+		});
+
+		client.subscribe(config.mqtt.topic);
+		client.on('message', (topic, message) => {
+			console.log('MQTT receive: ', topic, message.toString());
+			try {
+				var json = JSON.parse(message.toString());
+				// putMessage(JSON.stringify(json));
+				if (bluetoothDevice && "action" in json) {
+					if (['move', 'stop'].includes(json.action) && "x" in json && "y" in json) {
+						let x = Math.max(Math.min(json.x, radius * 2), 0);
+						let y = Math.max(Math.min(json.y, radius * 2), 0);
+
+						if (json.action == 'move') {
+							runCtrl(x, y);
+						}
+
+						if (json.action == 'stop') {
+							stopRolling();
+						}
+					}
+					if (['color'].includes(json.action) && "c" in json) {
+						setColor(json.c[0], json.c[1], json.c[2]);
+					}
+				}
+			}
+			catch (e) {
+				console.error("MQTT: JSON parse error", e.toString());
+			}
+		});
+	}
 
 	const setHeading = function (heading) {
 		if (state.busy) {
@@ -293,25 +437,28 @@
 	};
 
 	elConnect.onclick = function () {
-		if(bluetoothDevice && bluetoothDevice.gatt.connected) {
+		if (bluetoothDevice && bluetoothDevice.gatt.connected) {
 			elMessage.innerHTML = "Connect ok";
 		} else {
 			connect();
 		}
+		openWsServer();
 	};
 
 	elStop.onclick = function () {
 		elMessage.innerHTML = "Stoping...";
-		if(bluetoothDevice && bluetoothDevice.gatt.connected) {
+		if (bluetoothDevice && bluetoothDevice.gatt.connected) {
 			stopRolling();
-			setTimeout(()=>{
+			setTimeout(() => {
 				bluetoothDevice.gatt.disconnect();
 				elMessage.innerHTML = "Stop OK";
 				elConnect.innerHTML = "Connect";
+				closeWsServer();
 			}, 500);
 		} else {
 			elMessage.innerHTML = "Stop OK";
 			elConnect.innerHTML = "Connect";
+			closeWsServer();
 		}
 	};
 
@@ -343,8 +490,8 @@
 
 	const radius = 150;
 
-	const onDisconnected = function(event) {
-		if(bluetoothDevice) {
+	const onDisconnected = function (event) {
+		if (bluetoothDevice) {
 			const device = event.target;
 			console.log(`Device ${device.name} is disconnected.`);
 			elMessage.innerHTML = `Device ${device.name} is disconnected.`;
@@ -352,7 +499,7 @@
 		}
 	}
 
-	const runCtrl = function(x, y){
+	const runCtrl = function (x, y) {
 		// Notes: x and y are swapped here in order to get clockwise theta from Y-axis.
 		const theta = Math.PI - Math.atan2(x - radius, y - radius);
 		const degrees = theta * (180 / Math.PI);
@@ -407,7 +554,7 @@
 	// }
 
 	const handleKeyEvent = function (dir) {
-		if (dir!="") {
+		if (dir != "") {
 			switch (dir) {
 				case '[Left]':
 					keyX -= dir == prev_dir ? 2 : 1;
@@ -425,8 +572,8 @@
 					break;
 			}
 			prev_dir = dir;
-			keyX = Math.max(Math.min(keyX, radius*2), 0);
-			keyY = Math.max(Math.min(keyY, radius*2), 0);			
+			keyX = Math.max(Math.min(keyX, radius * 2), 0);
+			keyY = Math.max(Math.min(keyY, radius * 2), 0);
 			runCtrl(keyX, keyY);
 		}
 	};
@@ -478,16 +625,16 @@
 				case 36: keyName = "[Home]";
 					break;
 				case 37: keyName = "[Left]";
-					keyDirs.push(keyName);handleKeyEvent(keyName);
+					keyDirs.push(keyName); handleKeyEvent(keyName);
 					break;
 				case 38: keyName = "[Up]";
-					keyDirs.push(keyName);handleKeyEvent(keyName);
+					keyDirs.push(keyName); handleKeyEvent(keyName);
 					break;
 				case 39: keyName = "[Right]";
-					keyDirs.push(keyName);handleKeyEvent(keyName);
+					keyDirs.push(keyName); handleKeyEvent(keyName);
 					break;
 				case 40: keyName = "[Down]";
-					keyDirs.push(keyName);handleKeyEvent(keyName);
+					keyDirs.push(keyName); handleKeyEvent(keyName);
 					break;
 				case 46: keyName = "[Delete]";
 					break;
@@ -503,7 +650,7 @@
 		stopRolling();
 		keyX = radius;
 		keyY = radius;
-		prev_dir = '';		
+		prev_dir = '';
 		keystring = "";
 		keyDirs = [];
 	}
@@ -513,4 +660,7 @@
 	// document.onkeypress = keypress;
 	// document.onkeydown = keydown;
 	// document.onkeyup = keyup;
+
+	openWsServer();
+	openMqttServer();
 }());

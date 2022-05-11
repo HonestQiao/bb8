@@ -21,7 +21,7 @@
 
 	const config = {
 		mqtt: {
-			enable: 0,
+			enable: 1,
 			host: '192.168.1.15',
 			port: '8083',
 			username: 'admin',
@@ -29,7 +29,7 @@
 			topic: 'device/BB-8/command'
 		},
 		websocket: {
-			enable: 0,
+			enable: 1,
 			host: '192.168.1.15',
 			port: '1234',
 			reconnect: 1
@@ -82,7 +82,7 @@
 		if (!config.websocket.enable) {
 			return;
 		}
-		var host_port = window.location.host;
+		let host_port = window.location.host;
 		if (window.WebSocket) {
 			if (socket && socket.readyState == WebSocket.OPEN) {
 				console.warn("WS is already opened.");
@@ -93,18 +93,22 @@
 			socket.onmessage = function (event) {
 				console.log('WS receive: ' + event.data);
 				try {
-					var json = JSON.parse(event.data);
-					// putMessage(JSON.stringify(json));
-					if (bluetoothDevice && "action" in json && "x" in json && "y" in json) {
-						let x = Math.max(Math.min(json.x, radius * 2), 0);
-						let y = Math.max(Math.min(json.y, radius * 2), 0);
-
-						if (json.action == 'move') {
-							runCtrl(x, y);
+					let json = JSON.parse(event.data.toString());
+					if (bluetoothDevice && "action" in json) {
+						if (['move', 'stop'].includes(json.action) && "x" in json && "y" in json) {
+							let x = Math.max(Math.min(json.x, radius * 2), 0);
+							let y = Math.max(Math.min(json.y, radius * 2), 0);
+	
+							if (json.action == 'move') {
+								runCtrl(x, y);
+							}
+	
+							if (json.action == 'stop') {
+								stopRolling();
+							}
 						}
-
-						if (json.action == 'stop') {
-							stopRolling();
+						if (['color'].includes(json.action) && "c" in json) {
+							setColor(json.c[0], json.c[1], json.c[2]);
 						}
 					}
 				}
@@ -174,7 +178,7 @@
 		client.on('message', (topic, message) => {
 			console.log('MQTT receive: ', topic, message.toString());
 			try {
-				var json = JSON.parse(message.toString());
+				let json = JSON.parse(message.toString());
 				// putMessage(JSON.stringify(json));
 				if (bluetoothDevice && "action" in json) {
 					if (['move', 'stop'].includes(json.action) && "x" in json && "y" in json) {
@@ -579,7 +583,7 @@
 	};
 
 	// function keypress(e) {
-	// 	var currKey = 0, CapsLock = 0, e = e || event;
+	// 	let currKey = 0, CapsLock = 0, e = e || event;
 	// 	currKey = e.keyCode || e.which || e.charCode;
 	// 	CapsLock = currKey >= 65 && currKey <= 90;
 	// 	switch (currKey) {
@@ -605,7 +609,7 @@
 
 	function keydown(e) {
 		var e = e || event;
-		var currKey = e.keyCode || e.which || e.charCode;
+		let currKey = e.keyCode || e.which || e.charCode;
 		if ((currKey > 7 && currKey < 14) || (currKey > 31 && currKey < 47)) {
 			switch (currKey) {
 				case 8: keyName = "[Backspace]";

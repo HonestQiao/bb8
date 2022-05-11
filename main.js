@@ -21,7 +21,7 @@
 
 	const config = {
 		mqtt: {
-			enable: 1,
+			enable: 0,
 			host: '192.168.1.15',
 			port: '8083',
 			username: 'admin',
@@ -29,7 +29,7 @@
 			topic: 'device/BB-8/command'
 		},
 		websocket: {
-			enable: 1,
+			enable: 0,
 			host: '192.168.1.15',
 			port: '1234',
 			reconnect: 1
